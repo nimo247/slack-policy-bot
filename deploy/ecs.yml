@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Run the Slack Socket Mode worker on ECS Fargate with Bedrock access.
+
+Parameters:
+  ImageUri:
+    Type: String
+    Description: Full URI of the published ECR image, including its tag.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PublicSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: A subnet in the selected VPC with a route to an internet gateway.
+  SlackTokensSecretArn:
+    Type: String
+    Description: ARN of a same-region Secrets Manager JSON secret containing SLACK_APP_TOKEN and SLACK_BOT_TOKEN.
+  ModelId:
+    Type: String
+    Default: amazon.nova-lite-v1:0
+    Description: A directly invocable regional Bedrock foundation model that supports Converse tool use.
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+
+  Logs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 7
+
+  WorkerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Outbound HTTPS for the Slack and AWS APIs
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ReadSlackTokens
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SlackTokensSecretArn
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeConfiguredBedrockModel
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/${ModelId}
+
+  Task:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '512'
+      Memory: '1024'
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: policy-bot
+          Image: !Ref ImageUri
+          Essential: true
+          Environment:
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: BEDROCK_MODEL_ID
+              Value: !Ref ModelId
+          Secrets:
+            - Name: SLACK_APP_TOKEN
+              ValueFrom: !Sub '${SlackTokensSecretArn}:SLACK_APP_TOKEN::'
+            - Name: SLACK_BOT_TOKEN
+              ValueFrom: !Sub '${SlackTokensSecretArn}:SLACK_BOT_TOKEN::'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref Logs
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: bot
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref Task
+      LaunchType: FARGATE
+      PlatformVersion: '1.4.0'
+      DesiredCount: 1
+      DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: [!Ref PublicSubnetId]
+          SecurityGroups: [!Ref WorkerSecurityGroup]
+
+Outputs:
+  ClusterName:
+    Value: !Ref Cluster
+  ServiceName:
+    Value: !GetAtt Service.Name
+  LogGroupName:
+    Value: !Ref Logs

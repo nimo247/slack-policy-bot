@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!requirements.txt
+!policy_bot/
+!policy_bot/**
+!examples/
+!examples/sample-lab-notice.pdf
+policy_bot/**/__pycache__/

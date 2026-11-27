@@ -1,0 +1,21 @@
+display_information:
+  name: Academic Policy Bot
+  description: Ask a question about a PDF notice and look up sample academic rules.
+features:
+  app_home:
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: Academic Policy Bot
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - files:read
+      - files:write
+      - im:history
+settings:
+  event_subscriptions:
+    bot_events:
+      - message.im
+  socket_mode_enabled: true

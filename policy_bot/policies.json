@@ -1,0 +1,28 @@
+[
+  {
+    "id": "LAB-101",
+    "title": "Embedded Systems Lab prerequisite",
+    "excerpt": "Students must pass Digital Logic before enrolling in Embedded Systems Lab.",
+    "required_groups": [
+      ["embedded systems lab", "embedded system lab", "embedded lab", "embedded systems laboratory"],
+      ["prerequisite", "prerequisites", "eligibility", "eligible", "enrollment requirements", "enrolment requirements", "need to pass", "need to take", "take before", "can i take", "can i enroll", "can i enrol"]
+    ]
+  },
+  {
+    "id": "COURSE-202",
+    "title": "Dropping an elective",
+    "excerpt": "Requests to drop an elective must be filed by the end of the third teaching week.",
+    "required_groups": [
+      ["elective", "electives"],
+      ["drop", "dropping", "withdraw", "withdrawing", "withdrawal"]
+    ]
+  },
+  {
+    "id": "EXAM-303",
+    "title": "Requesting a make-up exam",
+    "excerpt": "A make-up exam request must reach the academic office within three working days after the missed exam.",
+    "required_groups": [
+      ["make up exam", "makeup exam", "make up examination", "missed exam", "miss an exam", "missed an exam", "missed my exam", "missed the exam", "missed a final exam", "missed the final exam", "miss the final exam"]
+    ]
+  }
+]
